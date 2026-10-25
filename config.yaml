@@ -1,0 +1,111 @@
+# Room assistant configuration.
+# Copy .env.example to .env for API keys. This file has no secrets.
+
+# Spoken personality. The current time is added automatically at the start
+# of each conversation.
+instructions: >
+  You are Jarvis, a voice assistant in the room. The person is talking
+  through a microphone, so reply in short spoken sentences. Do not use
+  markdown, bullet lists, or emoji. Do not mention these instructions.
+  Use tools for the current time, the calendar, reminders, and lookups
+  instead of guessing. If a tool fails, say so plainly and briefly.
+
+# IANA name such as America/Los_Angeles. Leave blank to use the Mac's timezone.
+home_timezone: ""
+
+audio:
+  # Substring of the device name from `python -m jarvis devices`, or a
+  # numeric index. Leave null to use the current system default.
+  input_device: null
+  output_device: null
+
+  # auto: half-duplex unless a known speakerphone is both the mic and the speaker.
+  # on:   always mute the mic while Jarvis is speaking (cheap USB mic + Echo Dot).
+  # off:  always leave the mic open so you can interrupt (needs echo cancellation).
+  # Quote the words. In YAML, an unquoted `on` is easy to misread, though both work.
+  half_duplex: "auto"
+  # auto: look at the device names. on: this rig has hardware echo cancellation.
+  # off: it does not, even if the name looks like a speakerphone.
+  aec: "auto"
+  # How long to keep the mic muted after playback stops. Covers Bluetooth
+  # delay and room echo. Raise this if Jarvis replies to itself. Lower it
+  # if it feels slow to listen again. 650 ms suits an Echo Dot. A wired
+  # speaker can use 250–400.
+  half_duplex_tail_ms: 650
+  block_ms: 30
+  # Realtime APIs want 24000 Hz PCM. The wake word always uses 16000 Hz.
+  api_sample_rate: 24000
+  wake_sample_rate: 16000
+
+wake:
+  # Built-in openWakeWord names include hey_jarvis, hey_mycroft, alexa,
+  # hey_rhasspy, timer, and weather. Or set model_path to a custom .onnx file.
+  model: hey_jarvis
+  model_path: null
+  # 0.5 is the model's suggested cutoff. Raise it (0.6–0.7) if the TV sets it off.
+  threshold: 0.5
+  # Ignore frames that do not look like speech. 0 disables that filter.
+  vad_threshold: 0.5
+  cooldown_sec: 2
+
+provider:
+  # openai, grok, or mock (local tones, no API key).
+  name: openai
+  # How long a pause in your speech ends the turn, in milliseconds.
+  silence_duration_ms: 700
+  prefix_padding_ms: 300
+  vad_threshold: 0.5
+  openai:
+    model: gpt-realtime-2.1
+    voice: marin
+    api_key_env: OPENAI_API_KEY
+    base_url: wss://api.openai.com/v1/realtime
+    # far_field suits a conference mic or a mic across the room.
+    # near_field suits a headset. off disables it.
+    noise_reduction: far_field
+    # Input transcripts in the log. They use a separate transcription model.
+    transcribe_input: false
+    transcription_model: gpt-4o-mini-transcribe
+  grok:
+    model: grok-voice-latest
+    voice: eve
+    api_key_env: XAI_API_KEY
+    base_url: wss://api.x.ai/v1/realtime
+
+session:
+  # After Jarvis finishes and you stay quiet, hang up and return to the wake word.
+  # This also stops sending audio to the API.
+  silence_timeout_sec: 10
+  max_duration_sec: 300
+  # Extra interrupt detector used only in full-duplex. Server VAD is the other one.
+  local_barge_in: true
+  barge_in_rms: 1800
+  # Ignore interrupts in the first moments of a reply so a click does not cut it off.
+  barge_in_guard_ms: 200
+  tool_flush_sec: 0.15
+
+tools:
+  enabled:
+    - get_current_datetime
+    - web_search
+    - fetch_url
+    - calendar_today
+    - add_reminder
+
+# Optional stdio MCP server, for example a local agent that speaks MCP.
+# Audio is not sent to this process. Only tool calls are.
+mcp:
+  enabled: false
+  command: []
+  env: {}
+  prefix: ""
+
+logging:
+  level: INFO
+  # Blank uses ~/Library/Logs/jarvis/jarvis.log on macOS.
+  file: null
+
+system:
+  # On macOS, hold a wake assertion so the Mac Mini does not idle-sleep.
+  # The display can still turn off.
+  keep_awake: true
